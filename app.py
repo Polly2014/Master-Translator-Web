@@ -716,14 +716,14 @@ def upload_file():
             md_filepath = app.config['UPLOAD_FOLDER'] / f"{task_id}_converted.md"
             with open(md_filepath, 'w', encoding='utf-8') as f:
                 f.write(content)
-            conversion_note = f"✅ Word 文档已自动转换为 Markdown"
+            conversion_note = "✅ Word document converted to Markdown automatically"
         else:
             # 直接读取 Markdown
             with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
             conversion_note = None
     except Exception as e:
-        return jsonify({'error': f'文件处理失败: {str(e)}'}), 500
+        return jsonify({'error': f'File processing failed: {str(e)}'}), 500
     
     response_data = {
         'task_id': task_id,
