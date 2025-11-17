@@ -18,6 +18,8 @@ import threading
 from litellm import completion
 import os
 from dotenv import load_dotenv
+from docx import Document
+from markdownify import markdownify as md
 
 # 自动加载 .env 文件（如果存在）
 load_dotenv()
@@ -94,18 +96,18 @@ TIMEOUT = 3600
 
 # ============ 分块配置 ============
 # 使用专门的 Demo 文件 (demo_files/) 进行演示
-# Quick Demo: 224 words (~60-90s)
+# Ultra Quick Demo: 200 words (~20-30s, 3 chunks)
 # Standard Demo: 1,037 words (~3-5min)
 DEMO_MODE = True  # 已有专门 Demo 文件，使用生产配置
 
 if DEMO_MODE:
-    CHUNK_TARGET_SIZE = 2500     # Demo: 超小块，展示分块能力（~1章/块）
-    CONTEXT_PARAGRAPHS = 1       # Demo: 减少上下文，加快速度
-    OVERLAP_CHECK_CHARS = 100    # Demo: 减少重叠检查
+    CHUNK_TARGET_SIZE = 800          # Demo: 超小块，确保 Quick Demo 3章→3块（~20-30s）
+    CONTEXT_PARAGRAPHS = 1           # Demo: 减少上下文，加快速度
+    OVERLAP_CHECK_CHARS = 100        # Demo: 减少重叠检查
 else:
-    CHUNK_TARGET_SIZE = 110000   # 生产: 大块，减少 API 调用
-    CONTEXT_PARAGRAPHS = 2       # 生产: 更多上下文，提高质量
-    OVERLAP_CHECK_CHARS = 200    # 生产: 更多重叠检查
+    CHUNK_TARGET_SIZE = 110000       # 生产: 大块，减少 API 调用
+    CONTEXT_PARAGRAPHS = 2           # 生产: 更多上下文，提高质量
+    OVERLAP_CHECK_CHARS = 200        # 生产: 更多重叠检查
 
 # 其他配置
 
@@ -196,6 +198,51 @@ class TranslationTask:
 
 
 # ============ 翻译核心函数（改造自 script_v3_chunked.py)============
+
+def convert_docx_to_markdown(docx_path):
+    """
+    将 Word 文档转换为 Markdown 格式
+    
+    Args:
+        docx_path: Word 文档路径
+        
+    Returns:
+        str: Markdown 格式的文本内容
+    """
+    try:
+        doc = Document(docx_path)
+        markdown_content = []
+        
+        for para in doc.paragraphs:
+            # 处理标题
+            if para.style.name.startswith('Heading'):
+                level = int(para.style.name.split()[-1]) if para.style.name.split()[-1].isdigit() else 1
+                markdown_content.append(f"{'#' * level} {para.text}\n")
+            # 处理普通段落
+            elif para.text.strip():
+                markdown_content.append(f"{para.text}\n")
+        
+        # 处理表格
+        for table in doc.tables:
+            markdown_content.append("\n")
+            for i, row in enumerate(table.rows):
+                cells = [cell.text.strip() for cell in row.cells]
+                markdown_content.append("| " + " | ".join(cells) + " |")
+                # 添加表头分隔符
+                if i == 0:
+                    markdown_content.append("| " + " | ".join(["---"] * len(cells)) + " |")
+            markdown_content.append("\n")
+        
+        result = "\n".join(markdown_content)
+        
+        # 清理多余的空行
+        result = re.sub(r'\n{3,}', '\n\n', result)
+        
+        return result.strip()
+        
+    except Exception as e:
+        raise Exception(f"DOCX conversion failed: {str(e)}")
+
 
 def extract_chapters(content):
     """提取章节结构"""
@@ -641,7 +688,7 @@ def index():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
-    """上传文件"""
+    """上传文件（支持 .md 和 .docx）"""
     if 'file' not in request.files:
         return jsonify({'error': '没有文件'}), 400
     
@@ -649,26 +696,48 @@ def upload_file():
     if file.filename == '':
         return jsonify({'error': '文件名为空'}), 400
     
-    if not file.filename.endswith('.md'):
-        return jsonify({'error': '只支持 Markdown 文件'}), 400
+    # 检查文件类型
+    file_ext = file.filename.rsplit('.', 1)[-1].lower()
+    if file_ext not in ['md', 'docx']:
+        return jsonify({'error': '只支持 Markdown (.md) 和 Word (.docx) 文件'}), 400
     
     # 保存文件
     filename = secure_filename(file.filename)
-    task_id = f"{int(time.time())}_{filename.split('.')[0]}"
+    task_id = f"{int(time.time())}_{filename.rsplit('.', 1)[0]}"
     filepath = app.config['UPLOAD_FOLDER'] / f"{task_id}_{filename}"
     file.save(filepath)
     
     # 读取内容
-    with open(filepath, 'r', encoding='utf-8') as f:
-        content = f.read()
+    try:
+        if file_ext == 'docx':
+            # 转换 DOCX 为 Markdown
+            content = convert_docx_to_markdown(filepath)
+            # 保存转换后的 Markdown 版本
+            md_filepath = app.config['UPLOAD_FOLDER'] / f"{task_id}_converted.md"
+            with open(md_filepath, 'w', encoding='utf-8') as f:
+                f.write(content)
+            conversion_note = f"✅ Word 文档已自动转换为 Markdown"
+        else:
+            # 直接读取 Markdown
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+            conversion_note = None
+    except Exception as e:
+        return jsonify({'error': f'文件处理失败: {str(e)}'}), 500
     
-    return jsonify({
+    response_data = {
         'task_id': task_id,
         'filename': filename,
         'size': len(content),
         'chars': len(content),
-        'words': len(content.split())
-    })
+        'words': len(content.split()),
+        'file_type': file_ext
+    }
+    
+    if conversion_note:
+        response_data['conversion_note'] = conversion_note
+    
+    return jsonify(response_data)
 
 
 @app.route('/api/analyze/<task_id>', methods=['POST'])
@@ -677,12 +746,15 @@ def analyze_file(task_id):
     data = request.json
     language = data.get('language', 'Japanese')
     
-    # 查找上传的文件
-    files = list(app.config['UPLOAD_FOLDER'].glob(f"{task_id}_*"))
-    if not files:
-        return jsonify({'error': '文件不存在'}), 404
-    
-    filepath = files[0]
+    # 查找上传的文件（优先查找转换后的 .md 文件）
+    converted_file = app.config['UPLOAD_FOLDER'] / f"{task_id}_converted.md"
+    if converted_file.exists():
+        filepath = converted_file
+    else:
+        files = list(app.config['UPLOAD_FOLDER'].glob(f"{task_id}_*"))
+        if not files:
+            return jsonify({'error': '文件不存在'}), 404
+        filepath = files[0]
     
     # 读取内容
     with open(filepath, 'r', encoding='utf-8') as f:

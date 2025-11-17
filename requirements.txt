@@ -6,3 +6,5 @@ eventlet==0.33.3
 litellm==1.51.3
 python-dotenv
 werkzeug==3.0.1
+python-docx
+markdownify
