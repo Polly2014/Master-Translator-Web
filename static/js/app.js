@@ -86,8 +86,10 @@ function initializeFileUpload() {
 }
 
 async function handleFileUpload(file) {
-    if (!file.name.endsWith('.md')) {
-        alert('Only Markdown (.md) files are supported!');
+    // 支持 .md 和 .docx 文件
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.md') && !fileName.endsWith('.docx')) {
+        alert('Only Markdown (.md) and Word (.docx) files are supported!');
         return;
     }
     
@@ -122,6 +124,12 @@ async function handleFileUpload(file) {
         document.getElementById('analyzeBtn').disabled = false;
         
         appendLog(`✅ File uploaded successfully: ${data.filename}`, 'success');
+        
+        // 如果是 Word 文档转换，显示转换提示
+        if (data.conversion_note) {
+            appendLog(data.conversion_note, 'success');
+        }
+        
         appendLog(`📊 Size: ${formatBytes(data.size)} | Characters: ${formatNumber(data.chars)}`, 'info');
         
         // 加入 WebSocket 房间
