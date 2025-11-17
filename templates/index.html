@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Translator             <p class="text-blue-300 text-lg">AI-Powered Intelligent Book Translation System</p>
+            <div class="flex justify-center gap-4 mt-4 text-sm">
+                <span class="px-3 py-1 bg-blue-500/20 rounded-full border border-blue-500/50">⚡ Multi-LLM</span>
+                <span class="px-3 py-1 bg-purple-500/20 rounded-full border border-purple-500/50">� Ultra-Long Doc</span>
+                <span class="px-3 py-1 bg-pink-500/20 rounded-full border border-pink-500/50">🎯 Smart Context Consistency</span>
+            </div>
+        </div>wered Translation Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <!-- Markdown 渲染库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <style>
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+        }
+        
+        .glow-border {
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .pulse-slow {
+            animation: pulse-slow 3s ease-in-out infinite;
+        }
+        
+        @keyframes scroll {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-10px); }
+        }
+        
+        .scroll-hint {
+            animation: scroll 1s ease-in-out infinite alternate;
+        }
+        
+        .log-entry {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .gradient-text {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* 自定义滚动条 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        
+        /* Markdown 渲染样式 */
+        .markdown-content {
+            line-height: 1.8;
+        }
+        
+        .markdown-content h1 {
+            font-size: 2em;
+            font-weight: bold;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: #e2e8f0;
+            border-bottom: 2px solid #475569;
+            padding-bottom: 0.3em;
+        }
+        
+        .markdown-content h2 {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-top: 1.2em;
+            margin-bottom: 0.5em;
+            color: #cbd5e1;
+        }
+        
+        .markdown-content h3 {
+            font-size: 1.25em;
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+            color: #cbd5e1;
+        }
+        
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+        
+        .markdown-content ul, .markdown-content ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+        
+        .markdown-content li {
+            margin-bottom: 0.5em;
+        }
+        
+        .markdown-content blockquote {
+            border-left: 4px solid #3b82f6;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #94a3b8;
+            font-style: italic;
+        }
+        
+        .markdown-content code {
+            background: #1e293b;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .markdown-content pre {
+            background: #1e293b;
+            padding: 1em;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+        
+        .markdown-content pre code {
+            padding: 0;
+            background: none;
+        }
+        
+        .markdown-content strong {
+            font-weight: bold;
+            color: #f1f5f9;
+        }
+        
+        .markdown-content em {
+            font-style: italic;
+        }
+        
+        .markdown-content a {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+        
+        .markdown-content a:hover {
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white">
+    
+    <!-- 主容器 -->
+    <div class="container mx-auto px-4 py-6">
+        
+        <!-- 标题区 -->
+        <div class="text-center mb-8">
+            <h1 class="text-5xl font-bold mb-2">
+                <span class="gradient-text">Master Translator</span>
+            </h1>
+            <p class="text-blue-300 text-lg">AI-Powered Intelligent Book Translation System</p>
+            <div class="flex justify-center gap-4 mt-4 text-sm">
+                <span class="px-3 py-1 bg-blue-500/20 rounded-full border border-blue-500/50">� Multi-Model AI</span>
+                <span class="px-3 py-1 bg-purple-500/20 rounded-full border border-purple-500/50">✂️ Smart Chunking</span>
+                <span class="px-3 py-1 bg-pink-500/20 rounded-full border border-pink-500/50">📚 Terminology Consistency</span>
+            </div>
+        </div>
+        
+        <!-- 三栏布局 -->
+        <div class="grid grid-cols-12 gap-4">
+            
+            <!-- 左侧：上传和配置 -->
+            <div class="col-span-3 space-y-4">
+                
+                <!-- 上传区 -->
+                <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">📤</span>
+                        <span>Upload File</span>
+                    </h2>
+                    
+                    <!-- 拖拽上传区 -->
+                    <div id="dropZone" class="border-2 border-dashed border-blue-500/50 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-500/10 transition-all">
+                        <div class="text-4xl mb-2">📄</div>
+                        <p class="text-sm text-gray-300">Drag & drop file here</p>
+                        <p class="text-xs text-gray-500 mt-1">or click to select</p>
+                        <input type="file" id="fileInput" accept=".md" class="hidden">
+                    </div>
+                    
+                    <!-- 文件信息 -->
+                    <div id="fileInfo" class="mt-4 hidden">
+                        <div class="bg-slate-700/50 rounded-lg p-3 text-sm">
+                            <div class="flex justify-between mb-1">
+                                <span class="text-gray-400">Filename</span>
+                                <span id="fileName" class="font-mono">-</span>
+                            </div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-gray-400">Size</span>
+                                <span id="fileSize" class="font-mono">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Characters</span>
+                                <span id="fileChars" class="font-mono">-</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Preview 按钮 -->
+                        <button id="previewSourceBtn" class="w-full mt-3 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white font-bold py-2 rounded-lg transition-all">
+                            <span class="text-lg">👁️</span> Preview Uploaded File
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 配置区 -->
+                <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">⚙️</span>
+                        <span>Translation Settings</span>
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <!-- 目标语言 -->
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">Target Language</label>
+                            <select id="targetLanguage" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-blue-500 focus:outline-none">
+                                <!-- East Asian -->
+                                <optgroup label="🌏 East Asian">
+                                    <option value="Chinese">🇨🇳 Chinese (Simplified)</option>
+                                    <option value="Traditional Chinese">🇹🇼 Chinese (Traditional)</option>
+                                    <option value="Japanese">🇯🇵 Japanese</option>
+                                    <option value="Korean">🇰🇷 Korean</option>
+                                </optgroup>
+                                
+                                <!-- European -->
+                                <optgroup label="🇪🇺 European">
+                                    <option value="French">🇫🇷 French</option>
+                                    <option value="German">🇩🇪 German</option>
+                                    <option value="Spanish">🇪🇸 Spanish</option>
+                                    <option value="Italian">🇮🇹 Italian</option>
+                                    <option value="Portuguese">🇵🇹 Portuguese</option>
+                                    <option value="Russian">🇷🇺 Russian</option>
+                                    <option value="Polish">🇵🇱 Polish</option>
+                                    <option value="Dutch">🇳🇱 Dutch</option>
+                                    <option value="Swedish">🇸🇪 Swedish</option>
+                                </optgroup>
+                                
+                                <!-- Middle Eastern & South Asian -->
+                                <optgroup label="🕌 Middle East & South Asia">
+                                    <option value="Arabic">🇸🇦 Arabic</option>
+                                    <option value="Hebrew">🇮🇱 Hebrew</option>
+                                    <option value="Hindi">🇮🇳 Hindi</option>
+                                    <option value="Urdu">🇵🇰 Urdu</option>
+                                    <option value="Persian">�🇷 Persian</option>
+                                    <option value="Turkish">🇹🇷 Turkish</option>
+                                </optgroup>
+                                
+                                <!-- Southeast Asian -->
+                                <optgroup label="🌴 Southeast Asian">
+                                    <option value="Thai">�� Thai</option>
+                                    <option value="Vietnamese">🇻🇳 Vietnamese</option>
+                                    <option value="Indonesian">🇮🇩 Indonesian</option>
+                                    <option value="Malay">🇲🇾 Malay</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        <!-- 术语数据库选项 -->
+                        <div class="flex items-center space-x-2 p-3 bg-slate-700/50 rounded-lg">
+                            <input type="checkbox" id="useTerminology" checked class="w-4 h-4 text-blue-600 bg-slate-600 border-slate-500 rounded focus:ring-blue-500 focus:ring-2">
+                            <label for="useTerminology" class="text-sm text-gray-300 cursor-pointer flex-1">
+                                <span class="font-semibold">Use Terminology Database (Hybrid Mode)</span>
+                                <span class="block text-xs text-gray-500 mt-0.5">
+                                    📚 Curated terms + 🔄 Dynamic extraction from first chunk
+                                </span>
+                            </label>
+                            <button id="viewTermsBtn" class="text-blue-400 hover:text-blue-300 transition-colors" title="View curated terminology database">
+                                <span class="text-xl">📚</span>
+                            </button>
+                        </div>
+                        
+                        <!-- 按钮组 -->
+                        <div class="space-y-2">
+                            <button id="analyzeBtn" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                🔍 Analyze Chunks
+                            </button>
+                            <button id="translateBtn" class="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-bold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed glow-border" disabled>
+                                🚀 Start Translation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+            <!-- 中间：分块预览 + 实时日志流 -->
+            <div class="col-span-6 space-y-4">
+                
+                <!-- 分块预览 -->
+                <div id="chunksPanel" class="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6 hidden">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">✂️</span>
+                        <span>Chunk Preview</span>
+                        <span class="ml-auto text-xs text-gray-400">👁️ Click any chunk to preview content</span>
+                    </h2>
+                    <div id="chunksList" class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                        <!-- 动态填充 -->
+                    </div>
+                </div>
+                
+                <!-- 实时日志流 -->
+                <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6 flex-1" style="min-height: 500px;">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">📊</span>
+                        <span>Real-time Log Stream</span>
+                        <span id="logStatus" class="ml-auto text-sm px-3 py-1 rounded-full bg-gray-700">Standby</span>
+                    </h2>
+                    
+                    <!-- 日志容器 -->
+                    <div id="logContainer" class="bg-slate-900/50 rounded-lg p-4 overflow-y-auto custom-scrollbar font-mono text-sm" style="height: calc(100% - 60px);">
+                        <div class="text-gray-500 text-center py-20">
+                            <div class="text-6xl mb-4 pulse-slow">🤖</div>
+                            <p>Waiting for task to start...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧：进度和统计 -->
+            <div class="col-span-3 space-y-4">
+                
+                <!-- 整体进度 -->
+                <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">📈</span>
+                        <span>Overall Progress</span>
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <!-- 总进度条 -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-400">Total Progress</span>
+                                <span id="overallPercent" class="font-bold text-blue-400">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-4 overflow-hidden">
+                                <div id="overallProgress" class="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 当前块进度 -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-400">Current Chunk</span>
+                                <span id="chunkPercent" class="font-bold text-green-400">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                                <div id="chunkProgress" class="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 块计数器 -->
+                        <div class="bg-slate-700/50 rounded-lg p-3 text-center">
+                            <div class="text-3xl font-bold">
+                                <span id="currentChunk" class="text-blue-400">0</span>
+                                <span class="text-gray-500">/</span>
+                                <span id="totalChunks" class="text-gray-400">0</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">Current / Total Chunks</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 统计信息 -->
+                <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">📊</span>
+                        <span>Statistics</span>
+                    </h2>
+                    
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Task Status</span>
+                            <span id="taskStatus" class="font-bold text-yellow-400">Not Started</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Source Characters</span>
+                            <span id="sourceChars" class="font-mono">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Total Chunks</span>
+                            <span id="chunksCount" class="font-mono">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Target Language</span>
+                            <span id="targetLang" class="font-mono">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 下载区 -->
+                <div id="downloadPanel" class="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-green-500/50 p-6 hidden">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">🎉</span>
+                        <span>Translation Complete</span>
+                    </h2>
+                    
+                    <div class="space-y-3">
+                        <button id="previewBtn" class="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold py-4 rounded-lg transition-all">
+                            <span class="text-xl">👁️</span> Preview Result
+                        </button>
+                        
+                        <button id="downloadBtn" class="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-bold py-4 rounded-lg transition-all glow-border">
+                            <span class="text-xl">📥</span> Download Result
+                        </button>
+                    </div>
+                </div>
+                
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- Terminology Modal -->
+    <div id="terminologyModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between p-6 border-b border-slate-700">
+                <div>
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <span>📚</span>
+                        <span>Terminology Database</span>
+                    </h2>
+                    <p class="text-sm text-gray-400 mt-1">
+                        🔄 Hybrid Mode: Curated + Dynamic Extraction
+                    </p>
+                </div>
+                <button id="closeModalBtn" class="text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <div id="terminologyContent" class="space-y-6">
+                    <div class="text-center text-gray-400 py-8">
+                        <div class="text-4xl mb-2">🔄</div>
+                        <p>Loading terminology database...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Preview Modal -->
+    <div id="previewModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between p-6 border-b border-slate-700">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <span id="previewIcon">👁️</span>
+                        <span id="previewTitle">Preview</span>
+                    </h2>
+                    <div class="flex gap-2">
+                        <button id="previewRawBtn" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors">
+                            Raw Text
+                        </button>
+                        <button id="previewRenderedBtn" class="px-3 py-1 bg-slate-600 text-white text-sm rounded hover:bg-slate-700 transition-colors">
+                            Rendered
+                        </button>
+                    </div>
+                </div>
+                <button id="closePreviewBtn" class="text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
+                <!-- Raw Text View -->
+                <div id="previewRawContent" class="hidden">
+                    <pre class="bg-slate-900 p-4 rounded-lg text-sm font-mono text-gray-300 whitespace-pre-wrap"></pre>
+                </div>
+                
+                <!-- Rendered View -->
+                <div id="previewRenderedContent" class="prose prose-invert max-w-none">
+                    <div class="text-center text-gray-400 py-8">
+                        <div class="text-4xl mb-2">🔄</div>
+                        <p>Loading preview...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-6 border-t border-slate-700 flex justify-between items-center">
+                <div class="text-sm text-gray-400">
+                    <span id="previewStats"></span>
+                </div>
+                <button id="downloadFromPreview" class="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-bold px-6 py-2 rounded-lg transition-all">
+                    <span class="text-lg">📥</span> Download
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
