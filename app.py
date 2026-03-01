@@ -39,53 +39,62 @@ app.config['UPLOAD_FOLDER'].mkdir(exist_ok=True)
 app.config['OUTPUT_FOLDER'].mkdir(exist_ok=True)
 
 # ============ 翻译配置 ============
-# 从环境变量读取 OpenRouter API Key，避免硬编码泄漏
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-if not OPENROUTER_API_KEY:
-    print("[WARN] OPENROUTER_API_KEY 未设置，翻译接口将不可用。请在本地创建 .env 或通过 shell 导出变量。")
+# CopilotX 远程代理 (OpenAI 兼容接口)
+COPILOTX_BASE_URL = os.environ.get("COPILOTX_BASE_URL", "https://api.polly.wang")
+COPILOTX_API_KEY = os.environ.get("COPILOTX_API_KEY", "polly-copilotx-fde7c976ac3d24a35de2382f43a33f12")
+print(f"[INFO] CopilotX API: {COPILOTX_BASE_URL}")
 
-# ============ 模型配置字典 ============
+# ============ 模型配置字典 (CopilotX / GitHub Copilot Models) ============
 MODEL_CONFIGS = {
-    'deepseek-free': {
-        'name': 'tngtech/deepseek-r1t-chimera:free',
-        'max_tokens': 16000,
+    'gpt-4o': {
+        'name': 'gpt-4o',
+        'max_tokens': 16384,
         'temperature': 0.3,
         'cost_per_1k': 0.0,
-        'description': '免费模型，适合 Demo 和开发测试',
+        'description': 'GPT-4o，快速且高质量，Demo 首选',
         'speed': 'fast',
-        'quality': 'good'
+        'quality': 'excellent'
     },
     'claude-sonnet-4': {
-        'name': 'anthropic/claude-sonnet-4',
-        'max_tokens': 100000,
+        'name': 'claude-sonnet-4',
+        'max_tokens': 16384,
         'temperature': 0.3,
-        'cost_per_1k': 0.01,
-        'description': '最高质量，适合生产环境',
+        'cost_per_1k': 0.0,
+        'description': 'Claude Sonnet 4，翻译质量极佳',
         'speed': 'medium',
         'quality': 'excellent'
     },
-    'gpt-4o': {
-        'name': 'openai/gpt-4o',
-        'max_tokens': 100000,
+    'claude-sonnet-4.5': {
+        'name': 'claude-sonnet-4.5',
+        'max_tokens': 16384,
         'temperature': 0.3,
-        'cost_per_1k': 0.0067,
-        'description': '平衡性能和成本',
+        'cost_per_1k': 0.0,
+        'description': 'Claude Sonnet 4.5，最新旗舰',
+        'speed': 'medium',
+        'quality': 'excellent'
+    },
+    'o3-mini': {
+        'name': 'o3-mini',
+        'max_tokens': 16384,
+        'temperature': 0.3,
+        'cost_per_1k': 0.0,
+        'description': 'OpenAI o3-mini，推理增强',
         'speed': 'fast',
         'quality': 'excellent'
     },
-    'deepseek-v3': {
-        'name': 'deepseek/deepseek-chat',
-        'max_tokens': 64000,
+    'gemini-2.0-flash': {
+        'name': 'gemini-2.0-flash',
+        'max_tokens': 16384,
         'temperature': 0.3,
-        'cost_per_1k': 0.0013,
-        'description': '高性价比，适合大规模生产',
+        'cost_per_1k': 0.0,
+        'description': 'Gemini Flash，超快速度',
         'speed': 'very-fast',
         'quality': 'good'
     }
 }
 
 # 当前使用的模型（修改这里切换模型)
-ACTIVE_MODEL = 'deepseek-free'  # 可选: deepseek-free, claude-sonnet-4, gpt-4o, deepseek-v3
+ACTIVE_MODEL = 'claude-sonnet-4'  # 可选: gpt-4o, claude-sonnet-4, claude-sonnet-4.5, o3-mini, gemini-2.0-flash
 
 # 从配置中加载当前模型参数
 current_config = MODEL_CONFIGS[ACTIVE_MODEL]
@@ -524,20 +533,17 @@ Now translate this section to {language}:
         last_update = start_time
         
         response = completion(
-            model=f"openrouter/{MODEL}",
+            model=f"openai/{MODEL}",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            api_key=OPENROUTER_API_KEY,
+            api_key=COPILOTX_API_KEY,
+            api_base=f"{COPILOTX_BASE_URL}/v1",
             max_tokens=MAX_TOKENS,
             temperature=TEMPERATURE,
             timeout=TIMEOUT,
             stream=True,
-            extra_headers={
-                "HTTP-Referer": "https://github.com/Polly2014",
-                "X-Title": "Master Translator Web"
-            }
         )
         
         for chunk in response:
@@ -725,6 +731,11 @@ def upload_file():
     except Exception as e:
         return jsonify({'error': f'File processing failed: {str(e)}'}), 500
     
+    # 创建任务并保存源内容（上传后即可预览）
+    task = TranslationTask(task_id, filename, '')
+    task.source_content = content
+    tasks[task_id] = task
+    
     response_data = {
         'task_id': task_id,
         'filename': filename,
@@ -764,14 +775,16 @@ def analyze_file(task_id):
     chapters = extract_chapters(content)
     chunks = plan_chunks(chapters, content)
     
-    # 创建任务
-    task = TranslationTask(task_id, filepath.name, language)
+    # 更新已有任务（上传时已创建）或创建新任务
+    task = tasks.get(task_id)
+    if not task:
+        task = TranslationTask(task_id, filepath.name, language)
+        tasks[task_id] = task
+    task.language = language
     task.source_content = content
     task.total_chunks = len(chunks)
     task.chunks_info = chunks
     task.status = 'analyzed'
-    
-    tasks[task_id] = task
     
     # 返回分块信息
     chunks_summary = []
