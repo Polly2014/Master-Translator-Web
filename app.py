@@ -533,57 +533,67 @@ Now translate this section to {language}:
 
 ---END CONTENT---"""
 
-    try:
-        start_time = time.time()
-        translated_text = ""
-        last_update = start_time
-        
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
-            timeout=TIMEOUT,
-            stream=True,
-        )
-        
-        for chunk in response:
-            if chunk.choices and len(chunk.choices) > 0:
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    translated_text += delta.content
-                    
-                    # Demo 模式：更频繁更新（每1seconds)，生产模式：每5seconds
-                    update_interval = 1 if DEMO_MODE else 5
-                    chars_threshold = 2000 if DEMO_MODE else 10000
-                    
-                    now = time.time()
-                    if now - last_update > update_interval or len(translated_text) % chars_threshold < 100:
-                        elapsed = now - start_time
-                        speed = len(translated_text) / elapsed if elapsed > 0 else 0
-                        chunk_progress = min(95, int((len(translated_text) / (len(chunk_content) * 1.5)) * 100))
+    max_retries = 3
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            start_time = time.time()
+            translated_text = ""
+            last_update = start_time
+            
+            if attempt > 1:
+                task.emit_log(f"🔄 Retry attempt {attempt}/{max_retries}...", 'warning')
+                time.sleep(2 * attempt)  # backoff: 4s, 6s
+            
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=MAX_TOKENS,
+                temperature=TEMPERATURE,
+                timeout=TIMEOUT,
+                stream=True,
+            )
+            
+            for chunk in response:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        translated_text += delta.content
                         
-                        task.emit_progress(
-                            progress=int(((chunk_id - 1) + chunk_progress / 100) / total_chunks * 100),
-                            chunk_progress=chunk_progress
-                        )
-                        # 使用 update_last=True 更新进度消息而不是追加
-                        task.emit_log(f"📥 Receiving translation... {len(translated_text):,} characters ({speed:.0f} c/s)", 'progress', update_last=True)
-                        last_update = now
-        
-        elapsed = time.time() - start_time
-        speed = len(translated_text) / elapsed if elapsed > 0 else 0
-        
-        task.emit_log(f"✅ Chunk {chunk_id} completed: {len(translated_text):,} characters ({speed:.0f} c/s, {elapsed:.0f}s)", 'success')
-        
-        return translated_text
-        
-    except Exception as e:
-        task.emit_log(f"❌ Chunk {chunk_id} translation failed: {str(e)}", 'error')
-        raise
+                        # Demo 模式：更频繁更新（每1seconds)，生产模式：每5seconds
+                        update_interval = 1 if DEMO_MODE else 5
+                        chars_threshold = 2000 if DEMO_MODE else 10000
+                        
+                        now = time.time()
+                        if now - last_update > update_interval or len(translated_text) % chars_threshold < 100:
+                            elapsed = now - start_time
+                            speed = len(translated_text) / elapsed if elapsed > 0 else 0
+                            chunk_progress = min(95, int((len(translated_text) / (len(chunk_content) * 1.5)) * 100))
+                            
+                            task.emit_progress(
+                                progress=int(((chunk_id - 1) + chunk_progress / 100) / total_chunks * 100),
+                                chunk_progress=chunk_progress
+                            )
+                            # 使用 update_last=True 更新进度消息而不是追加
+                            task.emit_log(f"📥 Receiving translation... {len(translated_text):,} characters ({speed:.0f} c/s)", 'progress', update_last=True)
+                            last_update = now
+            
+            elapsed = time.time() - start_time
+            speed = len(translated_text) / elapsed if elapsed > 0 else 0
+            
+            task.emit_log(f"✅ Chunk {chunk_id} completed: {len(translated_text):,} characters ({speed:.0f} c/s, {elapsed:.0f}s)", 'success')
+            
+            return translated_text
+            
+        except Exception as e:
+            if attempt < max_retries:
+                task.emit_log(f"⚠️ Chunk {chunk_id} attempt {attempt} failed: {str(e)}", 'warning')
+            else:
+                task.emit_log(f"❌ Chunk {chunk_id} translation failed after {max_retries} attempts: {str(e)}", 'error')
+                raise
 
 
 def translate_book_task(task):

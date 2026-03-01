@@ -38,7 +38,7 @@ Master-Translator-Web/
 │                             #    ├─ 翻译配置 (CopilotX API, 模型字典)
 │                             #    ├─ 分块配置 (Demo/生产模式)
 │                             #    ├─ 核心函数 (DOCX转换, 章节提取, 分块规划)
-│                             #    ├─ 翻译引擎 (LiteLLM 流式调用)
+│                             #    ├─ 翻译引擎 (OpenAI SDK 流式调用 + 重试机制)
 │                             #    ├─ Flask 路由 (REST API)
 │                             #    └─ WebSocket 事件 (Socket.IO)
 │
@@ -141,10 +141,11 @@ Master-Translator-Web/
     [智能分块] ── 按章节 + 目标大小规划 chunks
         │
         ▼
-    [逐块翻译] ── LiteLLM → CopilotX → LLM
+    [逐块翻译] ── OpenAI SDK → CopilotX → LLM
         │           ├─ 流式输出 (SSE → Socket.IO)
         │           ├─ 术语一致性 (curated + dynamic)
-        │           └─ 上下文延续 (前一块末尾段落)
+        │           ├─ 上下文延续 (前一块末尾段落)
+        │           └─ 失败重试 (3次, 指数退避)
         ▼
     [增量保存] ── 每块完成即保存
         │
@@ -167,11 +168,13 @@ Master-Translator-Web/
 
 ## Key Implementation Details
 
-- **LLM 调用**: 使用 `litellm.completion()` 统一接口，`model="openai/{MODEL}"` + `api_base=COPILOTX_BASE_URL`
+- **LLM 调用**: 使用 OpenAI SDK `client.chat.completions.create(model=MODEL, stream=True)` + `base_url=COPILOTX_BASE_URL/v1`
+- **重试机制**: 每个 chunk 翻译失败自动重试 3 次，指数退避 (4s, 6s)
 - **流式输出**: 翻译结果通过 Socket.IO 实时推送到前端
 - **后台翻译**: `threading.Thread` 避免阻塞 Flask 主线程
 - **文件格式**: 支持 `.md` 直接读取和 `.docx` 自动转换 (python-docx + markdownify)
 - **前端**: Tailwind CSS 单页应用，Socket.IO 客户端，Marked.js 渲染 Markdown 预览
+- **Emoji 兼容**: Twemoji CDN polyfill (仅 Windows，非表单元素)
 
 ## Relationship to Other Projects
 
