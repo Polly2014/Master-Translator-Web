@@ -15,8 +15,7 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import threading
-from litellm import completion
-import os
+from openai import OpenAI
 from dotenv import load_dotenv
 from docx import Document
 from markdownify import markdownify as md
@@ -43,6 +42,12 @@ app.config['OUTPUT_FOLDER'].mkdir(exist_ok=True)
 COPILOTX_BASE_URL = os.environ.get("COPILOTX_BASE_URL", "https://api.polly.wang")
 COPILOTX_API_KEY = os.environ.get("COPILOTX_API_KEY", "polly-copilotx-fde7c976ac3d24a35de2382f43a33f12")
 print(f"[INFO] CopilotX API: {COPILOTX_BASE_URL}")
+
+# OpenAI client (CopilotX is OpenAI-compatible)
+client = OpenAI(
+    base_url=f"{COPILOTX_BASE_URL}/v1",
+    api_key=COPILOTX_API_KEY,
+)
 
 # ============ 模型配置字典 (CopilotX / GitHub Copilot Models) ============
 MODEL_CONFIGS = {
@@ -488,13 +493,14 @@ def translate_chunk_web(task, chunk_id, total_chunks, chunk_content, language,
     system_prompt = f"""You are a professional book translator. Translate the following book excerpt from English to {language}.
 
 CRITICAL REQUIREMENTS:
-1. **Preserve ALL markdown formatting**: headers (#, ##, ###), lists, quotes (>), code blocks, links
-2. **Maintain structure**: Keep all chapters, sections, paragraphs exactly as structured
-3. **Preserve names**: Keep all person names, company names, book titles in original English
-4. **Technical terms**: Translate technical terms accurately, add English in parentheses for first occurrence if needed
-5. **Natural language**: Use native {language} expression, not word-by-word translation
-6. **Completeness**: Translate EVERY sentence, don't skip any content
-7. **Consistency**: Maintain consistent terminology throughout the book
+1. **Translate ALL text**: Including book titles, chapter headings, section titles, and all body text into {language}
+2. **Preserve ALL markdown formatting**: headers (#, ##, ###), lists, quotes (>), code blocks, links
+3. **Maintain structure**: Keep all chapters, sections, paragraphs exactly as structured
+4. **Preserve person/org names only**: Keep person names (e.g. Geoffrey Hinton) and organization names in English. But translate book titles, chapter titles, and general text
+5. **Technical terms**: Translate technical terms accurately, add English in parentheses for first occurrence if needed
+6. **Natural language**: Use native {language} expression, not word-by-word translation
+7. **Completeness**: Translate EVERY sentence, don't skip any content
+8. **Consistency**: Maintain consistent terminology throughout the book
 
 CONTEXT: This is chunk {chunk_id}/{total_chunks} of the complete book.
 """
@@ -532,14 +538,12 @@ Now translate this section to {language}:
         translated_text = ""
         last_update = start_time
         
-        response = completion(
-            model=f"openai/{MODEL}",
+        response = client.chat.completions.create(
+            model=MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            api_key=COPILOTX_API_KEY,
-            api_base=f"{COPILOTX_BASE_URL}/v1",
             max_tokens=MAX_TOKENS,
             temperature=TEMPERATURE,
             timeout=TIMEOUT,
@@ -547,9 +551,9 @@ Now translate this section to {language}:
         )
         
         for chunk in response:
-            if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
+            if chunk.choices and len(chunk.choices) > 0:
                 delta = chunk.choices[0].delta
-                if hasattr(delta, 'content') and delta.content:
+                if delta.content:
                     translated_text += delta.content
                     
                     # Demo 模式：更频繁更新（每1seconds)，生产模式：每5seconds
@@ -589,7 +593,7 @@ def translate_book_task(task):
         task.start_time = datetime.now()
         task.emit_log(f"🚀 Starting translation task", 'info')
         task.emit_log(f"📚 File: {task.filename}", 'info')
-        task.emit_log(f"🌍 Target language: {LANGUAGES.get(task.language, task.language)}", 'info')
+        task.emit_log(f"🌍 Target language: {task.language}", 'info')
         
         # 加载术语库（根据用户选择)
         terminology = None
@@ -1067,4 +1071,4 @@ if __name__ == '__main__':
 📁 输出目录: {app.config['OUTPUT_FOLDER']}
 {'='*80}
 """)
-    socketio.run(app, debug=True, host='0.0.0.0', port=5001)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5001, allow_unsafe_werkzeug=True)
