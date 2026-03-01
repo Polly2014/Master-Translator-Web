@@ -14,6 +14,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeButtons();
     initializeTerminologyModal();
     initializePreviewModal();
+    // Twemoji: 解决 Windows 不支持国旗 emoji 的问题
+    // 注意: <select>/<option> 只能包含纯文本，不能用 twemoji.parse()
+    // 所以只对非表单区域做 Twemoji 渲染（标题、badge等）
+    if (typeof twemoji !== 'undefined' && navigator.platform.indexOf('Win') !== -1) {
+        document.querySelectorAll('header, .text-sm, h1, h2, h3, span').forEach(el => {
+            if (!el.closest('select') && !el.closest('option')) {
+                twemoji.parse(el, { folder: 'svg', ext: '.svg' });
+            }
+        });
+    }
 });
 
 // ============ WebSocket 连接 ============
@@ -445,13 +455,20 @@ function formatNumber(num) {
 
 function getLanguageDisplay(code) {
     const langMap = {
+        'Chinese': '�🇳 Chinese (Simplified)',
+        'Traditional Chinese': '🇨🇳 Chinese (Traditional)',
         'Japanese': '🇯🇵 Japanese',
+        'Korean': '🇰🇷 Korean',
+        'French': '🇫🇷 French',
+        'German': '🇩🇪 German',
+        'Spanish': '🇪🇸 Spanish',
+        'Italian': '🇮🇹 Italian',
+        'Portuguese': '🇵🇹 Portuguese',
         'Russian': '🇷🇺 Russian',
         'Arabic': '🇸🇦 Arabic',
         'Hindi': '🇮🇳 Hindi',
-        'French': '🇫🇷 French',
-        'Spanish': '🇪🇸 Spanish',
-        'German': '🇩🇪 German'
+        'Thai': '🇹🇭 Thai',
+        'Vietnamese': '🇻🇳 Vietnamese'
     };
     return langMap[code] || code;
 }

@@ -14,7 +14,17 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <!-- Markdown 渲染库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <!-- Twemoji: 让国旗 emoji 在 Windows 上正常显示 -->
+    <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js" crossorigin="anonymous"></script>
     <style>
+        /* Twemoji: 控制国旗图片尺寸 */
+        img.emoji {
+            height: 1.2em;
+            width: 1.2em;
+            vertical-align: -0.2em;
+            display: inline-block;
+        }
+
         @keyframes glow {
             0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
             50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
